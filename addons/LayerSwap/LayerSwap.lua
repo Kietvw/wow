@@ -4618,6 +4618,34 @@ local function heardCounts()
   return n, h, o, s, v
 end
 
+-- The players who answered the ask, by name: hosts first and in green, "(on yours)" after a
+-- host on our own layer; at most HEARD_NAMES, then "+N more". "" until the first reply.
+local HEARD_NAMES = 8
+local function heardNames()
+  local here = zoneOf("player")
+  here = here and tostring(here)
+  local list = {}
+  for name, r in pairs(swap and swap.replies or {}) do
+    local sameZone = here ~= nil and r.zone == here
+    local onOurs = r.same or (sameZone and r.layer and current and Layer.same(r.layer, current))
+    local short = (Ambiguate and Ambiguate(name, "short")) or name
+    list[#list + 1] = { name = short, host = r.host and true or false, ours = onOurs and true or false }
+  end
+  if #list == 0 then return "" end
+  table.sort(list, function(a, b)
+    if a.host ~= b.host then return a.host end
+    if a.ours ~= b.ours then return b.ours end
+    return a.name < b.name
+  end)
+  local shown = {}
+  for i = 1, math.min(#list, HEARD_NAMES) do
+    local e = list[i]
+    shown[i] = (e.host and ("|cff40ff40" .. e.name .. "|r") or e.name) .. (e.ours and " (on yours)" or "")
+  end
+  local more = #list - #shown
+  return "Heard: " .. table.concat(shown, ", ") .. (more > 0 and (", +" .. more .. " more") or "") .. "."
+end
+
 -- One line on what LayerSwap users said, for the status line while the ask waits; "" until the
 -- first reply.
 local function heardLine()
@@ -4626,7 +4654,7 @@ local function heardLine()
   local parts = { h > 0 and (h .. " hosting") or "none hosting" }
   if o > 0 then parts[#parts + 1] = o .. " can move you" end
   if s > 0 then parts[#parts + 1] = s .. " on yours" end
-  return n .. (n == 1 and " LayerSwap user heard you: " or " LayerSwap users heard you: ") .. table.concat(parts, ", ") .. "."
+  return n .. (n == 1 and " LayerSwap user heard you: " or " LayerSwap users heard you: ") .. table.concat(parts, ", ") .. ".\n" .. heardNames()
 end
 
 -- Stop asking: the wait ends here. A chat line cannot be taken back, so an invite already on
@@ -4919,19 +4947,20 @@ local function statusLine()
       -- 2026, live: the fourth click found a host none of the three before had listed); else everyone here was asked
       local more = swap.where == "direct" and Who.more(swap.who)
       local sent = swap.reach or 0
+      local tail = n > 0 and ("\n" .. heardNames()) or ""   -- who answered, by name
       if same > 0 then
-        if more then return "No host on another layer yet; " .. same .. " here " .. (same == 1 and "is" or "are") .. " on yours. Click again to ask more." end
-        return "No host on another layer answered; " .. same .. " here " .. (same == 1 and "is" or "are") .. " on yours. Try a busier zone."
+        if more then return "No host on another layer yet; " .. same .. " here " .. (same == 1 and "is" or "are") .. " on yours. Click again to ask more." .. tail end
+        return "No host on another layer answered; " .. same .. " here " .. (same == 1 and "is" or "are") .. " on yours. Try a busier zone." .. tail
       end
       if n > 0 and h == 0 then
-        if more then return n .. (n == 1 and " LayerSwap user" or " LayerSwap users") .. " heard you, none hosts. Click again to ask more players." end
-        return n .. (n == 1 and " LayerSwap user" or " LayerSwap users") .. " heard you, but none of them hosts. Try again in a moment."
+        if more then return n .. (n == 1 and " LayerSwap user" or " LayerSwap users") .. " heard you, none hosts. Click again to ask more players." .. tail end
+        return n .. (n == 1 and " LayerSwap user" or " LayerSwap users") .. " heard you, but none of them hosts. Try again in a moment." .. tail
       end
       if n > 0 and other == 0 then
         -- LayerSwap hosts heard it, and none of them is known to stand on another layer in our zone
-        if more then return "No host on another layer heard you. Click again to ask more players here." end
-        if swap.where == "direct" and IsInGuild() then return "No host on another layer heard you. /ls guild asks your guild, on every layer." end
-        return "No host on another layer heard you. Try again in a moment."
+        if more then return "No host on another layer heard you. Click again to ask more players here." .. tail end
+        if swap.where == "direct" and IsInGuild() then return "No host on another layer heard you. /ls guild asks your guild, on every layer." .. tail end
+        return "No host on another layer heard you. Try again in a moment." .. tail
       end
       -- nobody among the players asked answered at all: none of them runs a LayerSwap that reads the ask
       -- (1.14.6 or newer, Host on or off) - said as such, so the player does not click on and on (Adam, 8 Nov 2026)
@@ -4941,9 +4970,9 @@ local function statusLine()
         if more then return "None of the " .. sent .. " asked runs LayerSwap. Click again to ask more players here." end
         return "Everyone in this zone has been asked. Try later, a busier zone or /ls guild."
       end
-      if more then return "No host on another layer answered. Click again to ask more players here." end
-      if swap.where == "direct" and IsInGuild() then return "No host on another layer answered. /ls guild asks your guild, on every layer." end
-      return "No host answered. Try again in a moment."
+      if more then return "No host on another layer answered. Click again to ask more players here." .. tail end
+      if swap.where == "direct" and IsInGuild() then return "No host on another layer answered. /ls guild asks your guild, on every layer." .. tail end
+      return "No host answered. Try again in a moment." .. tail
     end
     -- the request waits: the bottom line says it (askLine); this one carries what LayerSwap
     -- users said about it, if anything (Adam, 8 Oct 2026) - or that the game is slow (1.10)
