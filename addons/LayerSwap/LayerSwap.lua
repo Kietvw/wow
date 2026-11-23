@@ -3722,8 +3722,8 @@ Layer.FLIGHT, Layer.FLIGHT_DETAIL = "In flight", "Your layer is read when you la
 Layer.FLIGHT_SWAP = "On a flight path - swap when you land."
 -- 1.14.42 (Adam, 21 Nov 2026: the limits of the last weeks were made and tried on WoW Forever alone - "saa andre wow
 -- versioner ikke rammes af forever restriktioner"): on Forever only. Classic Era and TBC Anniversary ask on a flight
--- path as they did before 1.14.34; so are the hour's limit (Who.capLeft), the game's refusal (hostOnOurLayer), the
--- rule against a request in a fight (Who.fightLeft) and the event box (Layer.private).
+-- path as they did before 1.14.34; so are the hour's limit (Who.capLeft), the game's refusal (hostOnOurLayer) and
+-- the event box (Layer.private).
 function Layer.flying()
   if not FOREVER or type(UnitOnTaxi) ~= "function" then return false end
   local ok, taxi = pcall(UnitOnTaxi, "player")
@@ -4241,50 +4241,7 @@ function Who.moved(line)
   refresh()
 end
 
--- 1.14.42 (Adam, 20 Nov 2026, on players leaving a fight by a swap - out of PvP, or away from the creatures that
--- would have killed a hardcore character: "jeg vil have vi bygger en maade hvorpaa layerswap ikke kan ske mens man er
--- i pvp"; built and taken out that evening, and asked for again on 21 Nov: "vi skal ogsaa have en timer paa 6 sek laas
--- i combat saa den heller ikke kan udnyttes derved eks vis i pvp"): no request goes out in a fight or within Who.COMBAT_REST s of its end, by any way - the button, the mini
--- bar, the key, /ls swap, a layer in the list, Ask your guild. Every fight, not only one with a player: the game does
--- not let an addon see who it fights (the combat log is restricted on Forever), and on a PvP realm every character
--- is flagged. The fights are followed by Host.combatWatch, as for the host's pause. Not a setting: a rule against
--- misuse that could be unticked would stop nobody. A request already out when the fight starts runs its few seconds
--- - its group is left by itself as ever - but nobody new is asked (Who.fightStart).
--- On WoW Forever only (Adam, 21 Nov 2026: "Den skal kun gaelde til forever versionen"): Classic Era and TBC
--- Anniversary ask in a fight as they always did.
-Who.COMBAT_REST = 6   -- Adam, 21 Nov 2026: 6 s (8 on 20 Nov)
-Who.FIGHT_LINE = "No swap in combat - ask again after the fight."
--- true in a fight, the seconds of rest left after it, nil when a request may go out
-function Who.fightLeft(now)
-  if not FOREVER then return nil end
-  Host.combatWatch()
-  if Host.fighting then return true end
-  if not Host.foughtAt then return nil end
-  local left = Who.COMBAT_REST - ((now or GetTime()) - Host.foughtAt)
-  return left > 0 and left or nil
-end
--- 1.14.43-1.14.45 held every request while the player was dead or a ghost (Adam, 21 Nov 2026, "Ja til spoegelse");
--- taken out again in 1.14.46 (Adam, 23 Nov 2026: "goer det muligt at ... swappe mens man er doed og er spoegelse
--- igen", "Ja, fjern den"). The fight's rule stays.
-
--- a fight starts (or the player dies): the search is dropped, the line waiting in the chat box too, and the burst
--- asks nobody more
-function Who.fightStart(why, line)
-  if not FOREVER then return end
-  why, line = why or "in combat", line or Who.FIGHT_LINE
-  local last = swap and swap.who
-  if last and last.later then last.later = nil; log("who", "own guild dropped", why) end
-  if Send.pending then Send.drop(why, line); return end
-  local p = Who.stop()
-  if not p then return end
-  if p.out then
-    log("who", "burst stopped", why, #p.queue .. " left")
-  else
-    log("ask", "dropped", current, p.want, why .. " during the search")
-    setNotice(line, 15, "In combat")
-  end
-  refresh()
-end
+-- 1.14.47: the rule against a request in a fight (1.14.42) is gone - a swap may be asked for in combat again.
 
 -- A hidden whisper that is a request: the line a chat ask carries, "inv layer ..." (Who.send).
 function Who.isAsk(text)
@@ -4906,17 +4863,8 @@ do
     refresh()
     return false
   end
-  -- 1.14.42: nor in a fight or within Who.COMBAT_REST s of its end (Who.fightLeft)
-  local function calm()
-    local left = Who.fightLeft()
-    if not left then return true end
-    log("ask", "not asked", current, nil, left == true and "in combat" or string.format("%.0f s after combat", left))
-    setNotice(left == true and Who.FIGHT_LINE or ("Just out of combat - you can swap in " .. clock(math.ceil(left)) .. "."), 10, "In combat")
-    refresh()
-    return false
-  end
-  requestSwap = function(...) if not grounded() or not calm() or not allowed() then return end local r = swapAsk(...); Host.afterAsk(); return r end
-  requestGuild = function(...) if not grounded() or not calm() or not allowed() then return end local r = guildAsk(...); Host.afterAsk(); return r end
+  requestSwap = function(...) if not grounded() or not allowed() then return end local r = swapAsk(...); Host.afterAsk(); return r end
+  requestGuild = function(...) if not grounded() or not allowed() then return end local r = guildAsk(...); Host.afterAsk(); return r end
 end
 
 -- The one status line under the buttons.
@@ -5493,10 +5441,6 @@ local function swapState(now, quiet)
     -- spamme den ... foeles lidt utrygt"): in a group that is no swap's a click asked nothing and only said so - the
     -- button now reads In a group and is off, as on a flight path. The swap's own group keeps Leave group (above).
     return "In a group", false, false
-  elseif Who.fightLeft(now) then
-    -- 1.14.42: no request in a fight, nor in the seconds after it - counted down on the button
-    local left = Who.fightLeft(now)
-    return left == true and "In combat" or ("Swap in " .. clock(math.ceil(left))), false, false
   elseif Who.capLeft() > 0 then
     return "Wait " .. clock(Who.capLeft()), false, false   -- 1.14.38: the game's limit, to the second
   elseif Layer.flying() then
@@ -5546,11 +5490,6 @@ function Layer.eventNow(now)
   elseif text == Layer.FLIGHT then
     return { icon = "ev_info", col = "warn", head = "Why Swap layer is off",
       body = "You are on a flight path. The game moves nobody in the air - Swap layer works again when you land." }
-  elseif Who.fightLeft(now) then
-    local left = Who.fightLeft(now)
-    return { icon = "ev_info", col = "warn", head = "Why Swap layer is off", tag = left ~= true and clock(math.ceil(left)) or nil,
-      body = "LayerSwap asks for no swap in combat, nor in the " .. Who.COMBAT_REST
-        .. " seconds after it - a swap is no way out of a fight. Swap layer works again after that." }
   end
   if e then return e end   -- a happening past its first minute, with nothing above to say
   if swap and not swap.joinedAt and not swap.inviter and not swap.want
@@ -6846,7 +6785,6 @@ f:SetScript("OnEvent", function(_, ev, a1, a2, a3, a4, _, _, zoneChannelID, a8, 
     Layer.world(GetTime())
   elseif ev == "PLAYER_REGEN_DISABLED" or ev == "PLAYER_REGEN_ENABLED" then
     Host.combatWatch(ev)
-    if ev == "PLAYER_REGEN_DISABLED" then Who.fightStart() end   -- 1.14.42: nobody new is asked from here on
     refresh(); refreshMini()
   elseif ev == "NAME_PLATE_UNIT_ADDED" then
     -- measured only (Adam's log of 18 Nov 2026, 11:33: a fresh start, two showings and 0 nameplates of any kind in
