@@ -1628,7 +1628,7 @@ end
 -- man slukker for host skal det ikke kunne taendes igen paa anden vis. foerst hvis man selv slaar det til eller man
 -- relogger ind", "host skal kunne slukkes helt uden tvunget til"): the player's off holds - no ask turns Host on, no
 -- swap holds it on, and off is never refused. A login turns it on, as before. Host.LOCK is the switch of the old rule.
-local HOST_OFF_LINE = "Host off until you log out. Host on helps LayerSwap players change layer."
+local HOST_OFF_LINE = "Host is off. Host on helps LayerSwap players change layer."
 local function setHosting(on)
   -- not off while the player's own ask runs, nor in the 4 min after a swap (Host.refuseOff)
   if not on and hosting and Host.refuseOff and Host.refuseOff() then return false end
@@ -6381,7 +6381,7 @@ do
       if not stay then y = y - 48 - noteHeight end
     end
     -- Host: the same switch as the panel's Host button and /ls host; off lasts until the logout (1.14.7)
-    check("Host", "Host", "Invites players who ask for a layer, while you are alone. Off lasts until you log out.",
+    check("Host", "Host", "Invites players who ask for a layer, while you are alone. Off by default; stays as you set it.",
       function() return hosting end,
       function(on) if on ~= hosting then setHosting(on) end end)
     if FOREVER then
@@ -6549,7 +6549,7 @@ do
       end
       self.armed = nil
       LayerSwapDB.hostForced, LayerSwapDB.hostForcedSwap = nil, nil   -- Host on as a new install has it: the player's (1.14.25)
-      if not hosting then setHosting(true) end
+      if hosting then setHosting(false) end   -- custom: reset means Host off
       if Near.on() then log("near", "off") end
       if not Host.combatPause() then log("combatPause", "on") end
       LayerSwapDB.combatPause = nil
@@ -7219,7 +7219,9 @@ f:SetScript("OnEvent", function(_, ev, a1, a2, a3, a4, _, _, zoneChannelID, a8, 
     Layer.loading = Layer.loadEvent and true or nil   -- until the loading screen is gone (Layer.world)
     if not Layer.poller and C_Timer.NewTicker then Layer.poller = C_Timer.NewTicker(Layer.POLL_EVERY, Layer.poll) end
     C_Timer.After(20, Send.leaveHub)   -- the old hub channel, should the game's rejoin have come before we listened   -- a /reload in the ask or its 4 min (1.14.25)
-    hosting = LayerSwapDB.hosting ~= false
+    -- custom: the old addon forced Host on at each login, so a saved "on" may not be the player's; clear it once
+    if not LayerSwapDB.customHostOff then LayerSwapDB.hosting, LayerSwapDB.customHostOff = false, true end
+    hosting = LayerSwapDB.hosting == true   -- custom: off unless the player turned it on themselves
     log("hosting", hosting and "on" or "off", "at login")
     mini = mini or buildMini()
     if not (type(LayerSwapDB.mini) == "table" and LayerSwapDB.mini.hidden) then mini:Show() end
@@ -7236,17 +7238,7 @@ onEnterWorld = function(isLogin, isReload)
   if entered then return end
   entered = true
   if isLogin then LayerSwapDB.hostForced = nil end   -- a real login turns Host on anyway: nothing to undo (1.14.25)
-  if isLogin and not hosting then
-    hosting, LayerSwapDB.hosting = true, true
-    log("hosting", "on", "new login")
-  end
-  if hosting and not LayerSwapDB.hostSaid then
-    -- the off switch, said plainly the first time, and in the panel when it opens
-    LayerSwapDB.hostSaid = true
-    say("type /ls to open the panel. Hosting is ON: you invite players who ask for a layer, only while you are alone."
-      .. " The Host button in the panel or /ls host turns it off until you log out.")
-    setNotice("Host is on: you invite askers while alone. Off lasts until you log out.", 300)
-  end
+  -- custom: a login no longer turns Host on; the saved switch (off by default) is kept
   -- 1.14.34 (two users on CurseForge, 18 Nov 2026; Adam: "fjern det output der skrives i chat"): no line at a login or
   -- reload after that first one - the panel and the mini bar say whether Host is on
   if hosting then
