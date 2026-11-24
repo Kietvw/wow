@@ -1,0 +1,12 @@
+## Interface: 11509, 16001, 20506
+## Title: AHAdvisor
+## Notes: Scans the auction house, learns each item's normal price, sale rate and weekly rhythm, and suggests what to buy, sell and craft. /aha
+## Version: 1.0.0
+## Author: Kiet
+## SavedVariables: AHAdvisorDB
+
+Core.lua
+Data.lua
+Scan.lua
+Analysis.lua
+UI.lua
