@@ -6,6 +6,7 @@ Personal addons for World of Warcraft Classic (Era, Anniversary and TBC Annivers
 
 - [LayerSwap](addons/LayerSwap/README.md): shows which layer you are on and asks hosts for a swap (`/ls`)
 - [AHAdvisor](addons/AHAdvisor/README.md): scans the auction house, learns prices and suggests what to buy, sell and craft (`/aha`)
+- [GLPolestar](addons/GLPolestar/README.md): plays Guidelime guides in Polestar (`/glp`)
 
 ## Install
 

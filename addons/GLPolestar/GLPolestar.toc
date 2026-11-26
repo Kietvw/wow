@@ -1,0 +1,15 @@
+## Interface: 11509, 16001, 20506
+## Title: Guidelime for Polestar
+## Notes: Plays Guidelime guides in Polestar: every installed Guidelime guide addon, Guidelime's own custom guides and guides you paste in. /glp
+## Version: 1.0.0
+## Author: Kiet
+## Dependencies: Polestar
+## OptionalDeps: Guidelime
+## SavedVariables: GLPolestarDB
+
+# The folder name sorts before "Guidelime_*", so this addon loads (after Guidelime,
+# its optional dependency) before the guide addons and catches their guides.
+Zones.lua
+Convert.lua
+Core.lua
+Import.lua
